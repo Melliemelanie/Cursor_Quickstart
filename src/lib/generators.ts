@@ -141,11 +141,14 @@ export const generateBashScript = (options: GeneratorOptions): string => {
   let script = `#!/bin/bash
 set -e
 
+# Navigate to Documents directory to keep things organized
+cd ~/Documents || echo "Could not find Documents folder, staying in current directory."
+
 echo "🚀 Setting up ${projectType} project: ${projectName}..."
 
 # Check Node.js
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please install Node.js first."
+    echo "❌ Node.js is not installed. Please install Node.js first: https://nodejs.org"
     exit 1
 fi
 
@@ -218,7 +221,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 EOF
 
 cat > src/App.tsx << 'EOF'
-import React from 'react'
+import { useState } from 'react'
 
 function App() {
   return (
@@ -348,32 +351,70 @@ EOF
 echo "📦 Installing dependencies..."
 npm install
 
-echo "✅ Setup complete! To get started:"
-echo "  cd ${projectName}"
-echo "  npm run dev"
+echo "✨ Opening project in Cursor..."
+if command -v cursor &> /dev/null; then
+    cursor .
+elif command -v code &> /dev/null; then
+    echo "ℹ️  Cursor CLI not found, trying VS Code..."
+    code .
+else
+    echo "⚠️  Cursor CLI not found."
+    echo "👉  Please manually open the folder: ~/Documents/${projectName}"
+    echo "💡  Tip: Install the 'code' command in Cursor via Command Palette > 'Shell Command: Install 'cursor' command in PATH'"
+fi
 `;
 
   return script;
 };
 
 export const generatePowershellScript = (options: GeneratorOptions): string => {
-  // Simplified version for brevity, ideally follows similar logic
   const { projectType, projectName } = options;
+  const pkgJson = generatePackageJson(projectName, projectType);
+  
+  // Note: PowerShell escaping is complex. For this quickstart, we are simplifying.
+  // In a robust app, we would use a separate file or safer string generation.
+  
   return `# Windows PowerShell Script for ${projectName}
+$ErrorActionPreference = "Stop"
+
 Write-Host "🚀 Setting up ${projectType} project: ${projectName}..."
 
+# Check Node.js
 if (!(Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Error "❌ Node.js is not installed. Please install Node.js first."
+    Write-Error "❌ Node.js is not installed. Please install Node.js first: https://nodejs.org"
     exit 1
 }
 
-New-Item -ItemType Directory -Force -Path "${projectName}"
+# Navigate to Documents (standard location)
+$docs = [Environment]::GetFolderPath("MyDocuments")
+Set-Location $docs
+
+# Create directory
+New-Item -ItemType Directory -Force -Path "${projectName}" | Out-Null
 Set-Location "${projectName}"
 
 Write-Host "📦 Creating configuration files..."
-# Note: In a real implementation, we would use New-Item and Set-Content here similar to bash
-# For this quickstart, we'll output a placeholder message.
-Write-Host "Please run 'npm init -y' and install dependencies manually if this script is incomplete."
+
+# Create package.json
+$pkgJson = @'
+${pkgJson}
+'@
+$pkgJson | Out-File -Encoding UTF8 package.json
+
+# Create minimal README
+" # ${projectName}" | Out-File -Encoding UTF8 README.md
+
+Write-Host "📦 Installing dependencies..."
+npm install
+
+Write-Host "✨ Opening project in Cursor..."
+if (Get-Command cursor -ErrorAction SilentlyContinue) {
+    cursor .
+} elseif (Get-Command code -ErrorAction SilentlyContinue) {
+    code .
+} else {
+    Write-Host "⚠️  Cursor CLI not found."
+    Write-Host "👉  Please manually open the folder: $docs\\${projectName}"
+}
 `;
 };
-
